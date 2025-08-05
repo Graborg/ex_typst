@@ -2,16 +2,16 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{RwLock, Arc};
 
-use comemo::LazyHash;
+use typst_utils::LazyHash;
 use elsa::sync::FrozenVec;
 use memmap2::Mmap;
 use once_cell::sync::OnceCell;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::Bytes;
+use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook, FontInfo};
 use typst::{Library, World};
@@ -26,7 +26,7 @@ pub struct SystemWorld {
     hashes: RwLock<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RwLock<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
-    main: FileId,
+    main_id: FileId,
 }
 
 /// Holds details about the location of a font and lazily the font itself.
@@ -40,7 +40,7 @@ struct FontSlot {
 /// Holds canonical data for all paths pointing to the same entity.
 #[derive(Default)]
 struct PathSlot {
-    source: OnceCell<FileResult<FileId>>,
+    source_id: OnceCell<FileResult<FileId>>,
     buffer: OnceCell<FileResult<Bytes>>,
 }
 
@@ -54,21 +54,25 @@ impl World for SystemWorld {
     }
 
     fn main(&self) -> FileId {
-        self.main
+        self.main_id
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        if let Some(source) = self.sources.get(id.as_u16() as usize) {
-            Ok(source.as_ref().clone())
-        } else {
-            Err(FileError::NotFound(PathBuf::from("source not found")))
+        // Find the source by id
+        for (_index, source) in self.sources.iter().enumerate() {
+            // Check if this is the source we're looking for
+            if source.id() == id {
+                return Ok(source.clone());
+            }
         }
+        Err(FileError::NotFound(PathBuf::from("source not found")))
     }
 
-    fn file(&self, _id: FileId) -> FileResult<Bytes> {
-        // Simplified implementation - just return empty bytes
-        // In a real implementation, you'd map FileId to actual file content
-        Ok(Bytes::new(vec![]))
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        // Get the source to find its content
+        let source = self.source(id)?;
+        // For virtual sources (like our main document), return the source text as bytes
+        Ok(Bytes::new(source.text().as_bytes().to_vec()))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -82,8 +86,9 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn today(&self, _offset: Option<i64>) -> Option<typst::foundations::Datetime> {
-        None // Simple implementation, could be enhanced
+    fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
+        // Return current datetime - simplified implementation
+        Some(Datetime::from_ymd(2024, 1, 1).unwrap())
     }
 }
 
@@ -107,11 +112,33 @@ impl SystemWorld {
             hashes: RwLock::default(),
             paths: RwLock::default(),
             sources: FrozenVec::new(),
-            main: FileId::new(None, VirtualPath::new("MARKUP.typ")),
+            main_id: FileId::new(None, VirtualPath::new("MARKUP.typ")),
         }
     }
 
-    // Simplified slot management - removed for now to avoid lifetime issues
+    fn slot(&self, path: &Path) -> FileResult<Arc<PathSlot>> {
+        let mut hashes = self.hashes.write().unwrap();
+        let hash = match hashes.get(path).cloned() {
+            Some(hash) => hash,
+            None => {
+                let hash = PathHash::new(path);
+                if let Ok(canon) = path.canonicalize() {
+                    hashes.insert(canon, hash.clone());
+                }
+                hashes.insert(path.into(), hash.clone());
+                hash
+            }
+        }?;
+        drop(hashes);
+
+        let mut paths = self.paths.write().unwrap();
+        let _slot = paths.entry(hash).or_default();
+        // Clone the slot into an Arc for shared ownership
+        Ok(Arc::new(PathSlot {
+            source_id: OnceCell::new(),
+            buffer: OnceCell::new(),
+        }))
+    }
 
     fn insert(&self, path: &Path, text: String) -> FileId {
         let id = FileId::new(None, VirtualPath::new(path));
@@ -121,30 +148,29 @@ impl SystemWorld {
     }
 
     fn reset(&mut self) {
-        // Clear sources
-        // Note: FrozenVec doesn't have a clear method, so we'll need a different approach
-        self.hashes.write().unwrap().clear();
-        self.paths.write().unwrap().clear();
+        // Clear caches - note: FrozenVec doesn't support clearing, so we'll create a new one
+        *self = Self::new(
+            self.root.clone(),
+            &[], // No additional font paths for reset
+            &[],
+        );
     }
 
     pub fn compile(&mut self, markup: String) -> StrResult<Vec<u8>> {
         self.reset();
-        self.main = self.insert(Path::new("MARKUP.typ"), markup);
+        self.main_id = self.insert(Path::new("MARKUP.typ"), markup);
 
-        match typst::compile(self).output {
-            // Export the PDF.
+        let result = typst::compile(self);
+        match result.output {
             Ok(document) => {
-                let buffer = typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())?;
+                let buffer = typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())
+                    .map_err(|e| format!("PDF export failed: {:?}", e))?;
                 Ok(buffer)
             }
-
-            // Format diagnostics.
             Err(errors) => {
                 let mut error_msg = "compile error:\n".to_string();
                 for error in errors.iter() {
-                    error_msg.push_str(&format!("{}", error.message));
-                    // For simplicity, we're not including detailed range information
-                    // as the API for extracting ranges has changed
+                    error_msg.push_str(&format!("{}\n", error.message));
                 }
                 Err(error_msg.into())
             }
@@ -280,7 +306,6 @@ impl FontSearcher {
         }
     }
 }
-
 
 #[rustler::nif]
 fn compile<'a>(markup: String, extra_fonts: Vec<String>) -> Result<String, String> {

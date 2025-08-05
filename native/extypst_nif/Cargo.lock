@@ -471,7 +471,7 @@ dependencies = [
  "comemo 0.5.0",
  "dirs",
  "elsa",
- "memmap2 0.6.2",
+ "memmap2",
  "once_cell",
  "rustler",
  "same-file",
@@ -479,6 +479,7 @@ dependencies = [
  "typst",
  "typst-library",
  "typst-pdf",
+ "typst-utils",
  "walkdir",
 ]
 
@@ -552,7 +553,7 @@ checksum = "37be9fc20d966be438cd57a45767f73349477fb0f85ce86e000557f787298afb"
 dependencies = [
  "fontconfig-parser",
  "log",
- "memmap2 0.9.7",
+ "memmap2",
  "slotmap",
  "tinyvec",
  "ttf-parser",
@@ -1056,15 +1057,6 @@ name = "memchr"
 version = "2.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
-
-[[package]]
-name = "memmap2"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d28bba84adfe6646737845bc5ebbfa2c08424eb1c37e94a1fd2a82adb56a872"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "memmap2"
