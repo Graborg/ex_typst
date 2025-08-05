@@ -106,7 +106,7 @@ impl SystemWorld {
 
         Self {
             root,
-            library: LazyHash::new(Library::default()),
+            library: LazyHash::new(Library::builder().build()),
             book: LazyHash::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RwLock::default(),

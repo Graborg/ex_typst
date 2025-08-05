@@ -28,24 +28,50 @@ defmodule ExTypst do
     EEx.eval_string(typst_markup, bindings)
   end
 
-  @type pdf_opt :: {:extra_fonts, list(String.t())}
+  @type pdf_opt :: {:extra_fonts, list(String.t())} | {:use_font_defaults, boolean()}
 
   @spec render_to_pdf(String.t(), list(formattable), list(pdf_opt)) ::
           {:ok, binary()} | {:error, String.t()}
   @doc """
   Converts a given piece of typst markup to a PDF binary.
 
+  ## Options
+
+  * `:extra_fonts` - List of additional font paths to use
+  * `:use_font_defaults` - Whether to apply default font settings for consistent rendering (default: true)
+
   ## Examples
 
       iex> {:ok, pdf} = ExTypst.render_to_pdf("= test\\n<%= name %>", name: "John")
+      iex> is_binary(pdf)
+      true
+
+      iex> {:ok, pdf} = ExTypst.render_to_pdf("Text with 123 numbers", [], use_font_defaults: false)
       iex> is_binary(pdf)
       true
     
   """
   def render_to_pdf(typst_markup, bindings \\ [], opts \\ []) do
     extra_fonts = Keyword.get(opts, :extra_fonts, []) ++ @embedded_fonts
+    use_defaults = Keyword.get(opts, :use_font_defaults, true)
+    
     markup = render_to_string(typst_markup, bindings)
-    ExTypst.NIF.compile(markup, extra_fonts)
+    
+    # Add default font configuration to ensure consistent rendering
+    full_markup = if use_defaults do
+      """
+      #set text(
+        font: ("Times New Roman", "Times", "Liberation Serif", "DejaVu Serif", "serif"),
+        size: 11pt,
+        lang: "en"
+      )
+      
+      """ <> markup
+    else
+      markup
+    end
+    
+    ExTypst.NIF.compile(full_markup, extra_fonts)
   end
 
   @spec render_to_pdf!(String.t(), list(formattable)) :: binary()
