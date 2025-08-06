@@ -24,13 +24,21 @@ defmodule ExTypst.Format do
   end
 
   defp format_column_element(e) when is_integer(e), do: add_quotes(e)
-  defp format_column_element(e) when is_binary(e), do: e |> convert_backslashes_to_linebreaks() |> add_quotes()
-  defp format_column_element(unknown), do: unknown |> inspect() |> convert_backslashes_to_linebreaks() |> add_quotes()
+  defp format_column_element(e) when is_binary(e), do: e |> convert_backslashes_to_linebreaks() |> format_as_content()
+  defp format_column_element(unknown), do: unknown |> inspect() |> add_quotes()
 
   defp convert_backslashes_to_linebreaks(s) when is_binary(s) do
-    String.replace(s, "\\", "\", linebreak(), \"")
+    String.replace(s, "\\", " \\ ")
   end
   defp convert_backslashes_to_linebreaks(s), do: to_string(s)
+
+  defp format_as_content(s) do
+    if String.contains?(s, " \\ ") do
+      "[#{s}]"
+    else
+      add_quotes(s)
+    end
+  end
 
   defp add_quotes(s), do: "\"#{s}\""
 end
