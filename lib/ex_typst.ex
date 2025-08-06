@@ -29,8 +29,8 @@ defmodule ExTypst do
 
   @type pdf_opt :: {:extra_fonts, list(String.t())} | {:use_font_defaults, boolean()}
 
-  @callback render_to_pdf(String.t(), list(formattable), list(pdf_opt)) ::
-              {:ok, binary()} | {:error, String.t()}
+  @spec render_to_pdf(String.t(), list(formattable), list(pdf_opt)) ::
+          {:ok, binary()} | {:error, String.t()}
   @doc """
   Converts a given piece of typst markup to a PDF binary.
 
