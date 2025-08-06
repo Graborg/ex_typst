@@ -23,8 +23,14 @@ defmodule ExTypst.Format do
     end)
   end
 
-  defp format_column_element(e) when is_integer(e) or is_binary(e), do: add_quotes(e)
-  defp format_column_element(unknown), do: unknown |> inspect() |> add_quotes()
+  defp format_column_element(e) when is_integer(e), do: add_quotes(e)
+  defp format_column_element(e) when is_binary(e), do: e |> convert_slashes_to_linebreaks() |> add_quotes()
+  defp format_column_element(unknown), do: unknown |> inspect() |> convert_slashes_to_linebreaks() |> add_quotes()
+
+  defp convert_slashes_to_linebreaks(s) when is_binary(s) do
+    String.replace(s, "/", "\\")
+  end
+  defp convert_slashes_to_linebreaks(s), do: to_string(s)
 
   defp add_quotes(s), do: "\"#{s}\""
 end
