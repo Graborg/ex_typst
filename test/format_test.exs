@@ -21,7 +21,8 @@ defmodule ExTypst.FormatTest do
         ["Mary", "Product\\Manager", "Canada"]
       ]
 
-      expected = ~s/"John", [Software \\\nEngineer], "USA",\n  "Mary", [Product \\\nManager], "Canada"/
+      expected =
+        ~s/"John", [Software \\\nEngineer], "USA",\n  "Mary", [Product \\\nManager], "Canada"/
 
       assert ExTypst.Format.table_content(data) == expected
     end
@@ -32,7 +33,8 @@ defmodule ExTypst.FormatTest do
         ["Mary", "Product|Manager", "Canada"]
       ]
 
-      expected = ~s/"John", [Software \\\nEngineer], "USA",\n  "Mary", [Product \\\nManager], "Canada"/
+      expected =
+        ~s/"John", [Software \\\nEngineer], "USA",\n  "Mary", [Product \\\nManager], "Canada"/
 
       assert ExTypst.Format.table_content_with_breaks(data, "|") == expected
     end

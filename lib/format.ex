@@ -50,28 +50,38 @@ defmodule ExTypst.Format do
       iex> ExTypst.Format.table_content_with_breaks(columns, "~")
       ~s/"Jane", [Product \\\\\\nManager], "Canada"/
   """
-  def table_content_with_breaks(columns, break_char \\ "|") when is_list(columns) and is_binary(break_char) do
+  def table_content_with_breaks(columns, break_char \\ "|")
+      when is_list(columns) and is_binary(break_char) do
     Enum.map_join(columns, ",\n  ", fn row ->
       Enum.map_join(row, ", ", &format_column_element(&1, break_char))
     end)
   end
 
   defp format_column_element(e) when is_integer(e), do: add_quotes(e)
-  defp format_column_element(e) when is_binary(e), do: e |> convert_backslashes_to_linebreaks() |> format_as_content()
+
+  defp format_column_element(e) when is_binary(e),
+    do: e |> convert_backslashes_to_linebreaks() |> format_as_content()
+
   defp format_column_element(unknown), do: unknown |> inspect() |> add_quotes()
 
   defp format_column_element(e, _break_char) when is_integer(e), do: add_quotes(e)
-  defp format_column_element(e, break_char) when is_binary(e), do: e |> convert_custom_breaks_to_linebreaks(break_char) |> format_as_content()
+
+  defp format_column_element(e, break_char) when is_binary(e),
+    do: e |> convert_custom_breaks_to_linebreaks(break_char) |> format_as_content()
+
   defp format_column_element(unknown, _break_char), do: unknown |> inspect() |> add_quotes()
 
   defp convert_backslashes_to_linebreaks(s) when is_binary(s) do
     String.replace(s, "\\", " \\\n")
   end
+
   defp convert_backslashes_to_linebreaks(s), do: to_string(s)
 
-  defp convert_custom_breaks_to_linebreaks(s, break_char) when is_binary(s) and is_binary(break_char) do
+  defp convert_custom_breaks_to_linebreaks(s, break_char)
+       when is_binary(s) and is_binary(break_char) do
     String.replace(s, break_char, " \\\n")
   end
+
   defp convert_custom_breaks_to_linebreaks(s, _break_char), do: to_string(s)
 
   defp format_as_content(s) do

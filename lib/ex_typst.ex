@@ -22,7 +22,6 @@ defmodule ExTypst do
 
       iex> ExTypst.render_to_string("= Hey <%= name %>!", name: "Jude")
       "= Hey Jude!"
-    
   """
   def render_to_string(typst_markup, bindings \\ []) do
     EEx.eval_string(typst_markup, bindings)
@@ -30,8 +29,8 @@ defmodule ExTypst do
 
   @type pdf_opt :: {:extra_fonts, list(String.t())} | {:use_font_defaults, boolean()}
 
-  @spec render_to_pdf(String.t(), list(formattable), list(pdf_opt)) ::
-          {:ok, binary()} | {:error, String.t()}
+  @callback render_to_pdf(String.t(), list(formattable), list(pdf_opt)) ::
+              {:ok, binary()} | {:error, String.t()}
   @doc """
   Converts a given piece of typst markup to a PDF binary.
 
@@ -54,23 +53,24 @@ defmodule ExTypst do
   def render_to_pdf(typst_markup, bindings \\ [], opts \\ []) do
     extra_fonts = Keyword.get(opts, :extra_fonts, []) ++ @embedded_fonts
     use_defaults = Keyword.get(opts, :use_font_defaults, true)
-    
+
     markup = render_to_string(typst_markup, bindings)
-    
+
     # Add default font configuration to ensure consistent rendering
-    full_markup = if use_defaults do
-      """
-      #set text(
-        font: ("Times New Roman", "Times", "Liberation Serif", "DejaVu Serif", "serif"),
-        size: 11pt,
-        lang: "en"
-      )
-      
-      """ <> markup
-    else
-      markup
-    end
-    
+    full_markup =
+      if use_defaults do
+        """
+        #set text(
+          font: ("Times New Roman", "Times", "Liberation Serif", "DejaVu Serif", "serif"),
+          size: 11pt,
+          lang: "en"
+        )
+
+        """ <> markup
+      else
+        markup
+      end
+
     ExTypst.NIF.compile(full_markup, extra_fonts)
   end
 
