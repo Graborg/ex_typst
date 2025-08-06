@@ -14,13 +14,13 @@ defmodule ExTypst.FormatTest do
       assert ExTypst.Format.table_content(users) == expected
     end
 
-    test "convert forward slashes to line breaks in strings" do
+    test "convert backslashes to linebreak() functions in strings" do
       data = [
-        ["John", "Software/Engineer", "USA"],
-        ["Mary", "Product/Manager", "Canada"]
+        ["John", "Software\\Engineer", "USA"],
+        ["Mary", "Product\\Manager", "Canada"]
       ]
 
-      expected = ~s/"John", "Software\\Engineer", "USA",\n  "Mary", "Product\\Manager", "Canada"/
+      expected = ~s/"John", "Software", linebreak(), "Engineer", "USA",\n  "Mary", "Product", linebreak(), "Manager", "Canada"/
 
       assert ExTypst.Format.table_content(data) == expected
     end
